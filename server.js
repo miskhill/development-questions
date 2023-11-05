@@ -28,7 +28,7 @@ const sendMessageWithDatabaseInfo = async () => {
     const message = await twilioClient.messages.create({
       to: process.env.MY_PHONE_NUMBER,
       from: process.env.TWILIO_PHONE_NUMBER,
-      body: `Here is your daily update: ${infoToBeSent}`,
+      body: ` ${infoToBeSent}`,
     });
 
     console.log('Message sent with ID:', message.sid);
