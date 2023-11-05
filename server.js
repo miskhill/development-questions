@@ -5,34 +5,24 @@ const { MongoClient } = require('mongodb');
 const cron = require('node-cron');
 
 const twilioClient = new Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-// const sendMessage = () => {
-//   // Fetch information from MongoDB and send a message
-//   // You'll need to implement the logic to retrieve data from your collection
-//   const infoToBeSent = '...'; // Placeholder for actual info from MongoDB
-//   // Send a message
-//   twilioClient.messages.create({
-//     to: process.env.MY_PHONE_NUMBER,
-//     from: process.env.TWILIO_PHONE_NUMBER,
-//     body: `Here is your daily update: ${infoToBeSent}`,
-//   })
-//     .then((message) => console.log(message.sid))
-//     .catch((error) => console.error(error));
-// };
 
-
-// Function to fetch data from MongoDB and send a message
+// Function to fetch random data from MongoDB and send a message
 const sendMessageWithDatabaseInfo = async () => {
   const uri = process.env.MONGO_URI;
-  const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+  // Connecting to the MongoDB client without deprecated options
+  const client = new MongoClient(uri);
 
   try {
     await client.connect();
     const database = client.db('test');
     const collection = database.collection('questions');
     
-    // Fetch the document containing the information
-    const document = await collection.findOne({});
-    const infoToBeSent = document.questionText; 
+    // Fetch a random document from the collection using the aggregation framework
+    const randomDocument = await collection.aggregate([{ $sample: { size: 1 } }]).toArray();
+    if (randomDocument.length === 0) {
+      throw new Error('No documents found in the collection.');
+    }
+    const infoToBeSent = randomDocument[0].questionText; 
 
     // Use the Twilio client to send a message
     const message = await twilioClient.messages.create({
@@ -49,7 +39,7 @@ const sendMessageWithDatabaseInfo = async () => {
   }
 };
 
-cron.schedule('45 20 * * *', () => {
+cron.schedule('00 09 * * *', () => {
   console.log('Running a job at 09:00 every day!');
   sendMessageWithDatabaseInfo();
 }, {
@@ -59,10 +49,10 @@ cron.schedule('45 20 * * *', () => {
 
 const server = http.createServer((req, res) => {
   if (req.url === '/send-test-message' && req.method === 'GET') {
-    sendMessageWithDatabaseInfo();  // Call the sendMessage function when this route is accessed
+    sendMessageWithDatabaseInfo();  // Call the sendMessageWithDatabaseInfo function when this route is accessed
     
     res.setHeader('Content-Type', 'text/plain');
-    res.end('Triggered sendMessage function!');
+    res.end('Triggered sendMessageWithDatabaseInfo function!');
   } else {
     // Handle other routes or methods
     res.writeHead(404);
@@ -71,7 +61,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(3001, 'localhost', () => {
-  console.log('listening for requests on port 3001!');
+  console.log('Server listening for requests on port 3001.');
 });
-  
-
