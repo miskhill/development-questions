@@ -27,7 +27,7 @@ const sendMessageWithDatabaseInfo = async () => {
 
   try {
     await client.connect();
-    const database = client.db('Clusterfinix');
+    const database = client.db('test');
     const collection = database.collection('questions');
     
     // Fetch the document containing the information
