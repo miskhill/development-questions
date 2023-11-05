@@ -49,7 +49,7 @@ const sendMessageWithDatabaseInfo = async () => {
   }
 };
 
-cron.schedule('15 19 * * *', () => {
+cron.schedule('55 19 * * *', () => {
   console.log('Running a job at 09:00 every day');
   sendMessageWithDatabaseInfo();
 }, {
