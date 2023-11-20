@@ -13,4 +13,4 @@ I attach the Node.js server to my MongoDb collections and using aggregation rand
 # Improvements
 
 Moving forward I will make a front end to this to add questions, find questions and delete them CRUD style. Currently it is easy enough for me to simply add my questions directly to the database.
-I wrote the server for this in one evening and in one file so I will structure the file system for this. 
+I wrote the server for this in one evening and in one file so I will structure the file system as an improvement. 
