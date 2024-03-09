@@ -63,7 +63,7 @@ const server = http.createServer((req, res) => {
     res.setHeader("Content-Type", "text/plain");
     res.end("Triggered sendMessageWithDatabaseInfo function!");
   } else {
-    // Handle other routes or methods
+    // Handle other routes or methods..
     res.writeHead(404);
     res.end("Not Found");
   }
