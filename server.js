@@ -69,6 +69,6 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(3001, "localhost", () => {
+server.listen(3001, "0.0.0.0", () => {
   console.log("Server listening for requests on port 3001.");
 });
