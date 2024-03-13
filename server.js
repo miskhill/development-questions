@@ -45,7 +45,7 @@ const sendMessageWithDatabaseInfo = async () => {
 };
 
 cron.schedule(
-  "30 09 * * *",
+  "00 09 * * *",
   () => {
     console.log("Running a job at 09:30 every day!");
     sendMessageWithDatabaseInfo();
