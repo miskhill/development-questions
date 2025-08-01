@@ -11,6 +11,8 @@ const Twilio = require("twilio");
 const { MongoClient } = require("mongodb");
 const cron = require("node-cron");
 const Push = require("pushover-notifications");
+const https = require("https");
+const querystring = require("querystring");
 
 // Log the entire process.env object keys (no values for security)
 console.log("Available environment variables:", Object.keys(process.env));
@@ -127,15 +129,115 @@ const sendMessageWithDatabaseInfo = async () => {
   }
 };
 
+// Function to send Pushover notification using direct HTTPS request
+const sendPushoverDirectly = (message, title = "Daily Development Question") => {
+  return new Promise((resolve, reject) => {
+    console.log("\n=== SENDING PUSHOVER NOTIFICATION DIRECTLY VIA HTTPS ===");
+    
+    // Trim any whitespace from credentials
+    const userKey = process.env.PUSHOVER_USER_KEY ? process.env.PUSHOVER_USER_KEY.trim() : null;
+    const appToken = process.env.PUSHOVER_APP_TOKEN ? process.env.PUSHOVER_APP_TOKEN.trim() : null;
+    
+    // Log credential information (safely)
+    console.log("Pushover credentials check:");
+    console.log("- User key exists:", !!userKey);
+    console.log("- App token exists:", !!appToken);
+    
+    if (userKey) {
+      console.log("- User key length:", userKey.length);
+      console.log("- User key first/last 3 chars:", 
+        userKey.substring(0, 3) + "..." + userKey.substring(userKey.length - 3));
+    }
+    
+    if (!userKey || !appToken) {
+      const error = new Error("Missing Pushover credentials");
+      console.error("ERROR:", error.message);
+      return reject(error);
+    }
+    
+    // Prepare the POST data
+    const postData = querystring.stringify({
+      token: appToken,
+      user: userKey,
+      title: title,
+      message: message,
+      sound: "magic",
+      priority: 0
+    });
+    
+    console.log("Request details:");
+    console.log("- Endpoint: https://api.pushover.net/1/messages.json");
+    console.log("- Message length:", message.length);
+    console.log("- Title:", title);
+    
+    // Set up the request options
+    const options = {
+      hostname: 'api.pushover.net',
+      port: 443,
+      path: '/1/messages.json',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(postData)
+      }
+    };
+    
+    // Send the request
+    const req = https.request(options, (res) => {
+      console.log(`Status Code: ${res.statusCode}`);
+      console.log(`Headers: ${JSON.stringify(res.headers)}`);
+      
+      let responseData = '';
+      
+      res.on('data', (chunk) => {
+        responseData += chunk;
+      });
+      
+      res.on('end', () => {
+        console.log("Response data:", responseData);
+        
+        try {
+          const parsedData = JSON.parse(responseData);
+          
+          if (res.statusCode === 200 && parsedData.status === 1) {
+            console.log("\n✓ PUSHOVER NOTIFICATION SENT SUCCESSFULLY!");
+            resolve(parsedData);
+          } else {
+            console.error("\n!!! ERROR SENDING PUSHOVER NOTIFICATION !!!");
+            console.error("API Error:", parsedData.errors || parsedData);
+            
+            // Provide helpful error information
+            if (parsedData.errors && parsedData.errors[0].includes("user identifier is not a valid")) {
+              console.error("\nPOSSIBLE SOLUTION: Your Pushover user key appears to be invalid.");
+              console.error("1. Verify the key at https://pushover.net/ dashboard");
+              console.error("2. Ensure there are no whitespace or special characters in the key");
+              console.error("3. Check if you're using the correct key type (user key vs. group key)");
+            }
+            
+            reject(new Error(parsedData.errors ? parsedData.errors[0] : "Unknown API error"));
+          }
+        } catch (error) {
+          console.error("Error parsing response:", error);
+          reject(error);
+        }
+      });
+    });
+    
+    req.on('error', (error) => {
+      console.error("Request error:", error);
+      reject(error);
+    });
+    
+    // Write the data and end the request
+    req.write(postData);
+    req.end();
+    console.log("Request sent, waiting for response...");
+  });
+};
+
 // Function to fetch random data from MongoDB and send via Pushover
 const sendPushoverWithDatabaseInfo = async () => {
   console.log("\n=== STARTING PUSHOVER NOTIFICATION PROCESS ===");
-  
-  // Check if Pushover client is initialized
-  if (!pushoverClient) {
-    console.error("ERROR: Pushover client is not initialized. Cannot send notification.");
-    return;
-  }
   
   // Verify MongoDB URI exists
   const uri = process.env.MONGO_URI;
@@ -169,50 +271,33 @@ const sendPushoverWithDatabaseInfo = async () => {
     console.log("Successfully retrieved question from database");
     console.log("Question length:", infoToBeSent.length, "characters");
 
-    // Use the Pushover client to send a notification
-    const msg = {
-      message: infoToBeSent,
-      title: "Daily Development Question",
-      sound: "magic",
-      priority: 0
-    };
-
-    console.log("Sending Pushover notification...");
-    console.log("Notification details:", {
-      title: msg.title,
-      messageLength: msg.message.length,
-      sound: msg.sound,
-      priority: msg.priority
-    });
-    
-    // Print Pushover credentials being used (safely)
-    console.log("Using Pushover credentials:");
-    if (process.env.PUSHOVER_USER_KEY) {
-      const userKey = process.env.PUSHOVER_USER_KEY;
-      console.log("- User key (first/last 3 chars):", 
-        userKey.substring(0, 3) + "..." + userKey.substring(userKey.length - 3));
-    }
-    
-    pushoverClient.send(msg, function(err, result) {
-      if (err) {
-        console.error("\n!!! ERROR SENDING PUSHOVER NOTIFICATION !!!");
-        console.error("Error details:", err);
-        if (err.stack) {
-          console.error("Error stack:", err.stack);
-        }
+    // Use the direct HTTPS method to send notification
+    try {
+      await sendPushoverDirectly(infoToBeSent, "Daily Development Question");
+      console.log("Notification sent successfully");
+    } catch (error) {
+      console.error("Failed to send notification:", error.message);
+      
+      // If direct method fails, try with the library as fallback
+      if (pushoverClient) {
+        console.log("\nAttempting to send with pushover-notifications library as fallback...");
         
-        // Try to provide more helpful error information
-        if (err.message && err.message.includes("user identifier is not a valid")) {
-          console.error("\nPOSSIBLE SOLUTION: Your Pushover user key appears to be invalid.");
-          console.error("1. Verify the key at https://pushover.net/ dashboard");
-          console.error("2. Ensure the PUSHOVER_USER_KEY environment variable is set correctly in Railway");
-          console.error("3. Check for any whitespace or special characters that might have been included by mistake");
-        }
-      } else {
-        console.log("\n✓ PUSHOVER NOTIFICATION SENT SUCCESSFULLY!");
-        console.log("Response from Pushover API:", result);
+        const msg = {
+          message: infoToBeSent,
+          title: "Daily Development Question",
+          sound: "magic",
+          priority: 0
+        };
+        
+        pushoverClient.send(msg, function(err, result) {
+          if (err) {
+            console.error("Fallback also failed:", err.message);
+          } else {
+            console.log("Fallback method succeeded:", result);
+          }
+        });
       }
-    });
+    }
 
   } catch (err) {
     console.error("\n!!! ERROR IN PUSHOVER NOTIFICATION PROCESS !!!");
@@ -241,11 +326,11 @@ cron.schedule(
 );
 */
 
-// Pushover cron job at 12:30
+// Pushover cron job at 13:05
 cron.schedule(
-  "05 13 * * *",
+  "14 13 * * *",
   () => {
-    console.log("Running Pushover notification job at 12:30 every day!");
+    console.log("Running Pushover notification job at 13:14 every day!");
     sendPushoverWithDatabaseInfo();
   },
   {
