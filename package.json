@@ -8,6 +8,7 @@
     "mongo": "^0.1.0",
     "node-cron": "^3.0.2",
     "nodemon": "^3.0.1",
+    "pushover-notifications": "^1.2.2",
     "twilio": "^4.19.0"
   },
   "devDependencies": {},

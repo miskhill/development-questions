@@ -98,6 +98,8 @@ cron.schedule(
   }
 );
 
+// Server functionality commented out - keeping for future reference if needed
+/*
 const server = http.createServer((req, res) => {
   if (req.url === "/send-test-message" && req.method === "GET") {
     sendMessageWithDatabaseInfo(); // Call the sendMessageWithDatabaseInfo function when this route is accessed
@@ -114,3 +116,7 @@ const server = http.createServer((req, res) => {
 server.listen(3001, "0.0.0.0", () => {
   console.log("Server listening for requests on port 3001.");
 });
+*/
+
+// Note: Server functionality has been moved to pushover.js
+// To re-enable this server, uncomment the code above
