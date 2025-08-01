@@ -4,10 +4,36 @@ const Twilio = require("twilio");
 const { MongoClient } = require("mongodb");
 const cron = require("node-cron");
 
-const twilioClient = new Twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-);
+// Add detailed logging for environment variables
+console.log("Environment Variables Check:");
+console.log("TWILIO_ACCOUNT_SID exists:", !!process.env.TWILIO_ACCOUNT_SID);
+console.log("TWILIO_AUTH_TOKEN exists:", !!process.env.TWILIO_AUTH_TOKEN);
+console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
+console.log("MY_PHONE_NUMBER exists:", !!process.env.MY_PHONE_NUMBER);
+console.log("TWILIO_PHONE_NUMBER exists:", !!process.env.TWILIO_PHONE_NUMBER);
+
+// Log the first few characters of each variable (for security)
+if (process.env.TWILIO_ACCOUNT_SID) {
+  console.log("TWILIO_ACCOUNT_SID starts with:", process.env.TWILIO_ACCOUNT_SID.substring(0, 5) + "...");
+}
+if (process.env.TWILIO_AUTH_TOKEN) {
+  console.log("TWILIO_AUTH_TOKEN starts with:", process.env.TWILIO_AUTH_TOKEN.substring(0, 3) + "...");
+}
+
+// Global twilioClient variable
+let twilioClient;
+
+try {
+  console.log("Initializing Twilio client...");
+  twilioClient = new Twilio(
+    process.env.TWILIO_ACCOUNT_SID,
+    process.env.TWILIO_AUTH_TOKEN
+  );
+  console.log("Twilio client initialized successfully");
+} catch (error) {
+  console.error("Error initializing Twilio client:", error.message);
+  console.error("Error stack:", error.stack);
+}
 
 // Function to fetch random data from MongoDB and send a message
 const sendMessageWithDatabaseInfo = async () => {
