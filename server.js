@@ -1,4 +1,4 @@
-// Try loading environment variables with explicit path for Railway
+
 try {
   require("dotenv").config();
   console.log("Dotenv config loaded");
