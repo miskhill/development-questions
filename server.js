@@ -328,7 +328,7 @@ cron.schedule(
 
 // Pushover cron job at 13:05
 cron.schedule(
-  "21 12 * * *",
+  "24 13 * * *",
   () => {
     console.log("Running Pushover notification job at 12:25 every day!");
     sendPushoverWithDatabaseInfo();
