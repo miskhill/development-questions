@@ -70,7 +70,7 @@ const sendPushoverWithDatabaseInfo = async () => {
 
 // Schedule the job to run at 11:30 AM every day
 cron.schedule(
-  "20 12 * * *",
+  "25 12 * * *",
   () => {
     console.log("Running Pushover notification job at 11:30 every day!");
     sendPushoverWithDatabaseInfo();
