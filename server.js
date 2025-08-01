@@ -14,19 +14,6 @@ const Push = require("pushover-notifications");
 const https = require("https");
 const querystring = require("querystring");
 
-// Log the entire process.env object keys (no values for security)
-console.log("Available environment variables:", Object.keys(process.env));
-console.log("Total number of environment variables:", Object.keys(process.env).length);
-
-// Add detailed logging for environment variables
-console.log("Environment Variables Check:");
-console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
-
-// Check for Pushover environment variables with detailed logging
-console.log("\n=== PUSHOVER CONFIGURATION ====");
-console.log("PUSHOVER_USER_KEY exists:", !!process.env.PUSHOVER_USER_KEY);
-console.log("PUSHOVER_APP_TOKEN exists:", !!process.env.PUSHOVER_APP_TOKEN);
-
 // Log partial values of Pushover credentials for debugging (safely)
 if (process.env.PUSHOVER_USER_KEY) {
   const userKey = process.env.PUSHOVER_USER_KEY;
@@ -42,17 +29,9 @@ if (process.env.PUSHOVER_APP_TOKEN) {
   console.log("PUSHOVER_APP_TOKEN last 3 chars:", "..." + appToken.substring(appToken.length - 3));
 }
 
-// Check for a test environment variable
-console.log("\nTEST_VARIABLE exists:", !!process.env.TEST_VARIABLE);
-if (process.env.TEST_VARIABLE) {
-  console.log("TEST_VARIABLE value:", process.env.TEST_VARIABLE);
-}
-
-// Global client variables
 let twilioClient;
 let pushoverClient;
 
-// Initialize Twilio client
 try {
   console.log("Initializing Twilio client...");
   twilioClient = new Twilio(
@@ -65,11 +44,9 @@ try {
   console.error("Error stack:", error.stack);
 }
 
-// Initialize Pushover client
 try {
   console.log("Initializing Pushover client...");
   
-  // Validate Pushover credentials before initializing
   if (!process.env.PUSHOVER_USER_KEY) {
     throw new Error("PUSHOVER_USER_KEY is missing or empty");
   }
@@ -78,10 +55,8 @@ try {
     throw new Error("PUSHOVER_APP_TOKEN is missing or empty");
   }
   
-  // Log validation checks
   console.log("Pushover credentials validation passed");
   
-  // Initialize the client
   pushoverClient = new Push({
     user: process.env.PUSHOVER_USER_KEY,
     token: process.env.PUSHOVER_APP_TOKEN
@@ -94,10 +69,8 @@ try {
   console.error("Pushover notifications will not work until this is resolved");
 }
 
-// Function to fetch random data from MongoDB and send via Twilio
 const sendMessageWithDatabaseInfo = async () => {
   const uri = process.env.MONGO_URI;
-  // Connecting to the MongoDB client without deprecated options
   const client = new MongoClient(uri);
 
   try {
@@ -105,7 +78,6 @@ const sendMessageWithDatabaseInfo = async () => {
     const database = client.db("test");
     const collection = database.collection("questions");
 
-    // Fetch a random document from the collection using the aggregation framework
     const randomDocument = await collection
       .aggregate([{ $sample: { size: 1 } }])
       .toArray();
@@ -114,7 +86,6 @@ const sendMessageWithDatabaseInfo = async () => {
     }
     const infoToBeSent = randomDocument[0].questionText;
 
-    // Use the Twilio client to send a message
     const message = await twilioClient.messages.create({
       to: process.env.MY_PHONE_NUMBER,
       from: process.env.TWILIO_PHONE_NUMBER,
@@ -129,16 +100,13 @@ const sendMessageWithDatabaseInfo = async () => {
   }
 };
 
-// Function to send Pushover notification using direct HTTPS request
 const sendPushoverDirectly = (message, title = "Daily Development Question") => {
   return new Promise((resolve, reject) => {
     console.log("\n=== SENDING PUSHOVER NOTIFICATION DIRECTLY VIA HTTPS ===");
     
-    // Trim any whitespace from credentials
     const userKey = process.env.PUSHOVER_USER_KEY ? process.env.PUSHOVER_USER_KEY.trim() : null;
     const appToken = process.env.PUSHOVER_APP_TOKEN ? process.env.PUSHOVER_APP_TOKEN.trim() : null;
     
-    // Log credential information (safely)
     console.log("Pushover credentials check:");
     console.log("- User key exists:", !!userKey);
     console.log("- App token exists:", !!appToken);
@@ -155,7 +123,6 @@ const sendPushoverDirectly = (message, title = "Daily Development Question") => 
       return reject(error);
     }
     
-    // Prepare the POST data
     const postData = querystring.stringify({
       token: appToken,
       user: userKey,
@@ -170,7 +137,6 @@ const sendPushoverDirectly = (message, title = "Daily Development Question") => 
     console.log("- Message length:", message.length);
     console.log("- Title:", title);
     
-    // Set up the request options
     const options = {
       hostname: 'api.pushover.net',
       port: 443,
@@ -182,7 +148,6 @@ const sendPushoverDirectly = (message, title = "Daily Development Question") => 
       }
     };
     
-    // Send the request
     const req = https.request(options, (res) => {
       console.log(`Status Code: ${res.statusCode}`);
       console.log(`Headers: ${JSON.stringify(res.headers)}`);
@@ -206,7 +171,6 @@ const sendPushoverDirectly = (message, title = "Daily Development Question") => 
             console.error("\n!!! ERROR SENDING PUSHOVER NOTIFICATION !!!");
             console.error("API Error:", parsedData.errors || parsedData);
             
-            // Provide helpful error information
             if (parsedData.errors && parsedData.errors[0].includes("user identifier is not a valid")) {
               console.error("\nPOSSIBLE SOLUTION: Your Pushover user key appears to be invalid.");
               console.error("1. Verify the key at https://pushover.net/ dashboard");
@@ -228,18 +192,15 @@ const sendPushoverDirectly = (message, title = "Daily Development Question") => 
       reject(error);
     });
     
-    // Write the data and end the request
     req.write(postData);
     req.end();
     console.log("Request sent, waiting for response...");
   });
 };
 
-// Function to fetch random data from MongoDB and send via Pushover
 const sendPushoverWithDatabaseInfo = async () => {
   console.log("\n=== STARTING PUSHOVER NOTIFICATION PROCESS ===");
   
-  // Verify MongoDB URI exists
   const uri = process.env.MONGO_URI;
   if (!uri) {
     console.error("ERROR: MONGO_URI is missing or empty. Cannot connect to database.");
@@ -247,7 +208,6 @@ const sendPushoverWithDatabaseInfo = async () => {
   }
   
   console.log("Connecting to MongoDB...");
-  // Connecting to the MongoDB client
   const client = new MongoClient(uri);
 
   try {
@@ -258,7 +218,6 @@ const sendPushoverWithDatabaseInfo = async () => {
     const collection = database.collection("questions");
 
     console.log("Fetching random question from database...");
-    // Fetch a random document from the collection using the aggregation framework
     const randomDocument = await collection
       .aggregate([{ $sample: { size: 1 } }])
       .toArray();
@@ -271,14 +230,12 @@ const sendPushoverWithDatabaseInfo = async () => {
     console.log("Successfully retrieved question from database");
     console.log("Question length:", infoToBeSent.length, "characters");
 
-    // Use the direct HTTPS method to send notification
     try {
       await sendPushoverDirectly(infoToBeSent, "Daily Development Question");
       console.log("Notification sent successfully");
     } catch (error) {
       console.error("Failed to send notification:", error.message);
       
-      // If direct method fails, try with the library as fallback
       if (pushoverClient) {
         console.log("\nAttempting to send with pushover-notifications library as fallback...");
         
@@ -326,11 +283,64 @@ cron.schedule(
 );
 */
 
-// Pushover cron job at 13:05
+// Pushover cron jobs - multiple times daily
+// 9:00 AM
 cron.schedule(
-  "24 13 * * *",
+  "0 9 * * *",
   () => {
-    console.log("Running Pushover notification job at 12:25 every day!");
+    console.log("Running Pushover notification job at 9:00 AM!");
+    sendPushoverWithDatabaseInfo();
+  },
+  {
+    scheduled: true,
+    timezone: "Europe/London",
+  }
+);
+
+// 12:00 PM (Noon)
+cron.schedule(
+  "0 12 * * *",
+  () => {
+    console.log("Running Pushover notification job at 12:00 PM!");
+    sendPushoverWithDatabaseInfo();
+  },
+  {
+    scheduled: true,
+    timezone: "Europe/London",
+  }
+);
+
+// 3:00 PM
+cron.schedule(
+  "0 15 * * *",
+  () => {
+    console.log("Running Pushover notification job at 3:00 PM!");
+    sendPushoverWithDatabaseInfo();
+  },
+  {
+    scheduled: true,
+    timezone: "Europe/London",
+  }
+);
+
+// 6:00 PM
+cron.schedule(
+  "0 18 * * *",
+  () => {
+    console.log("Running Pushover notification job at 6:00 PM!");
+    sendPushoverWithDatabaseInfo();
+  },
+  {
+    scheduled: true,
+    timezone: "Europe/London",
+  }
+);
+
+// 9:00 PM
+cron.schedule(
+  "0 21 * * *",
+  () => {
+    console.log("Running Pushover notification job at 9:00 PM!");
     sendPushoverWithDatabaseInfo();
   },
   {
@@ -354,7 +364,6 @@ const server = http.createServer((req, res) => {
     res.end("Triggered Pushover notification function!");
   }
   else if (req.url === "/" && req.method === "GET") {
-    // Simple status page
     res.setHeader("Content-Type", "text/html");
     res.end(`
       <html>
@@ -370,13 +379,11 @@ const server = http.createServer((req, res) => {
       </html>
     `);
   } else {
-    // Handle other routes or methods
     res.writeHead(404);
     res.end("Not Found");
   }
 });
 
-// Get the port from the environment variable or use 3000 as default
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server listening for requests on port ${PORT}.`);
