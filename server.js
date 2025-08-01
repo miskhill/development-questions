@@ -1,8 +1,19 @@
-require("dotenv").config();
+// Try loading environment variables with explicit path for Railway
+try {
+  require("dotenv").config();
+  console.log("Dotenv config loaded");
+} catch (err) {
+  console.error("Error loading dotenv:", err.message);
+}
+
 const http = require("http");
 const Twilio = require("twilio");
 const { MongoClient } = require("mongodb");
 const cron = require("node-cron");
+
+// Log the entire process.env object keys (no values for security)
+console.log("Available environment variables:", Object.keys(process.env));
+console.log("Total number of environment variables:", Object.keys(process.env).length);
 
 // Add detailed logging for environment variables
 console.log("Environment Variables Check:");
