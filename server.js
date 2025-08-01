@@ -22,6 +22,11 @@ console.log("TWILIO_AUTH_TOKEN exists:", !!process.env.TWILIO_AUTH_TOKEN);
 console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
 console.log("MY_PHONE_NUMBER exists:", !!process.env.MY_PHONE_NUMBER);
 console.log("TWILIO_PHONE_NUMBER exists:", !!process.env.TWILIO_PHONE_NUMBER);
+// Check for a test environment variable
+console.log("TEST_VARIABLE exists:", !!process.env.TEST_VARIABLE);
+if (process.env.TEST_VARIABLE) {
+  console.log("TEST_VARIABLE value:", process.env.TEST_VARIABLE);
+}
 
 // Log the first few characters of each variable (for security)
 if (process.env.TWILIO_ACCOUNT_SID) {
@@ -82,7 +87,7 @@ const sendMessageWithDatabaseInfo = async () => {
 };
 
 cron.schedule(
-  "00 09 * * *",
+  "00 11 * * *",
   () => {
     console.log("Running a job at 09:30 every day!");
     sendMessageWithDatabaseInfo();
