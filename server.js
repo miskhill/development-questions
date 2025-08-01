@@ -10,6 +10,7 @@ const http = require("http");
 const Twilio = require("twilio");
 const { MongoClient } = require("mongodb");
 const cron = require("node-cron");
+const Push = require("pushover-notifications");
 
 // Log the entire process.env object keys (no values for security)
 console.log("Available environment variables:", Object.keys(process.env));
@@ -22,6 +23,9 @@ console.log("TWILIO_AUTH_TOKEN exists:", !!process.env.TWILIO_AUTH_TOKEN);
 console.log("MONGO_URI exists:", !!process.env.MONGO_URI);
 console.log("MY_PHONE_NUMBER exists:", !!process.env.MY_PHONE_NUMBER);
 console.log("TWILIO_PHONE_NUMBER exists:", !!process.env.TWILIO_PHONE_NUMBER);
+// Check for Pushover environment variables
+console.log("PUSHOVER_USER_KEY exists:", !!process.env.PUSHOVER_USER_KEY);
+console.log("PUSHOVER_APP_TOKEN exists:", !!process.env.PUSHOVER_APP_TOKEN);
 // Check for a test environment variable
 console.log("TEST_VARIABLE exists:", !!process.env.TEST_VARIABLE);
 if (process.env.TEST_VARIABLE) {
@@ -36,9 +40,11 @@ if (process.env.TWILIO_AUTH_TOKEN) {
   console.log("TWILIO_AUTH_TOKEN starts with:", process.env.TWILIO_AUTH_TOKEN.substring(0, 3) + "...");
 }
 
-// Global twilioClient variable
+// Global client variables
 let twilioClient;
+let pushoverClient;
 
+// Initialize Twilio client
 try {
   console.log("Initializing Twilio client...");
   twilioClient = new Twilio(
@@ -51,7 +57,20 @@ try {
   console.error("Error stack:", error.stack);
 }
 
-// Function to fetch random data from MongoDB and send a message
+// Initialize Pushover client
+try {
+  console.log("Initializing Pushover client...");
+  pushoverClient = new Push({
+    user: process.env.PUSHOVER_USER_KEY,
+    token: process.env.PUSHOVER_APP_TOKEN
+  });
+  console.log("Pushover client initialized successfully");
+} catch (error) {
+  console.error("Error initializing Pushover client:", error.message);
+  console.error("Error stack:", error.stack);
+}
+
+// Function to fetch random data from MongoDB and send via Twilio
 const sendMessageWithDatabaseInfo = async () => {
   const uri = process.env.MONGO_URI;
   // Connecting to the MongoDB client without deprecated options
@@ -86,10 +105,55 @@ const sendMessageWithDatabaseInfo = async () => {
   }
 };
 
+// Function to fetch random data from MongoDB and send via Pushover
+const sendPushoverWithDatabaseInfo = async () => {
+  const uri = process.env.MONGO_URI;
+  // Connecting to the MongoDB client
+  const client = new MongoClient(uri);
+
+  try {
+    await client.connect();
+    const database = client.db("test");
+    const collection = database.collection("questions");
+
+    // Fetch a random document from the collection using the aggregation framework
+    const randomDocument = await collection
+      .aggregate([{ $sample: { size: 1 } }])
+      .toArray();
+    if (randomDocument.length === 0) {
+      throw new Error("No documents found in the collection.");
+    }
+    const infoToBeSent = randomDocument[0].questionText;
+
+    // Use the Pushover client to send a notification
+    const msg = {
+      message: infoToBeSent,
+      title: "Daily Development Question",
+      sound: "magic",
+      priority: 0
+    };
+
+    pushoverClient.send(msg, function(err, result) {
+      if (err) {
+        console.error("Error sending Pushover notification:", err);
+      } else {
+        console.log("Pushover notification sent successfully:", result);
+      }
+    });
+
+  } catch (err) {
+    console.error("Failed to retrieve data or send notification:", err);
+  } finally {
+    await client.close();
+  }
+};
+
+// Twilio cron job (commented out for now)
+/*
 cron.schedule(
   "17 11 * * *",
   () => {
-    console.log("Running a job at 09:30 every day!");
+    console.log("Running Twilio job at 11:17 every day!");
     sendMessageWithDatabaseInfo();
   },
   {
@@ -97,15 +161,51 @@ cron.schedule(
     timezone: "Europe/London",
   }
 );
+*/
 
-// Server functionality commented out - keeping for future reference if needed
-/*
+// Pushover cron job at 12:30
+cron.schedule(
+  "30 12 * * *",
+  () => {
+    console.log("Running Pushover notification job at 12:30 every day!");
+    sendPushoverWithDatabaseInfo();
+  },
+  {
+    scheduled: true,
+    timezone: "Europe/London",
+  }
+);
+
+// Create HTTP server with endpoints for both Twilio and Pushover testing
 const server = http.createServer((req, res) => {
-  if (req.url === "/send-test-message" && req.method === "GET") {
-    sendMessageWithDatabaseInfo(); // Call the sendMessageWithDatabaseInfo function when this route is accessed
-
+  if (req.url === "/send-test-twilio" && req.method === "GET") {
+    // Call the Twilio function when this route is accessed
+    sendMessageWithDatabaseInfo();
     res.setHeader("Content-Type", "text/plain");
-    res.end("Triggered sendMessageWithDatabaseInfo function!");
+    res.end("Triggered Twilio SMS function!");
+  } 
+  else if (req.url === "/send-test-pushover" && req.method === "GET") {
+    // Call the Pushover function when this route is accessed
+    sendPushoverWithDatabaseInfo();
+    res.setHeader("Content-Type", "text/plain");
+    res.end("Triggered Pushover notification function!");
+  }
+  else if (req.url === "/" && req.method === "GET") {
+    // Simple status page
+    res.setHeader("Content-Type", "text/html");
+    res.end(`
+      <html>
+        <head><title>Notification Service</title></head>
+        <body>
+          <h1>Notification Service</h1>
+          <p>Server is running. Available endpoints:</p>
+          <ul>
+            <li><a href="/send-test-pushover">Test Pushover notification</a></li>
+            <li><a href="/send-test-twilio">Test Twilio SMS</a> (if configured)</li>
+          </ul>
+        </body>
+      </html>
+    `);
   } else {
     // Handle other routes or methods
     res.writeHead(404);
@@ -113,10 +213,8 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(3001, "0.0.0.0", () => {
-  console.log("Server listening for requests on port 3001.");
+// Get the port from the environment variable or use 3000 as default
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server listening for requests on port ${PORT}.`);
 });
-*/
-
-// Note: Server functionality has been moved to pushover.js
-// To re-enable this server, uncomment the code above
