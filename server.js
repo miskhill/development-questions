@@ -227,6 +227,16 @@ const sendPushoverWithDatabaseInfo = async () => {
     }
     
     const infoToBeSent = randomDocument[0].questionText;
+    // Better logging for if I make a DB error entering a question.
+    if (!infoToBeSent || typeof infoToBeSent !== 'string' || infoToBeSent.trim().length === 0) {
+      console.error("ERROR: Retrieved document has invalid or empty questionText:", {
+        documentId: randomDocument[0]._id,
+        questionText: infoToBeSent,
+        documentKeys: Object.keys(randomDocument[0])
+      });
+      throw new Error("Retrieved document has invalid or empty questionText field");
+    }
+    
     console.log("Successfully retrieved question from database");
     console.log("Question length:", infoToBeSent.length, "characters");
 
