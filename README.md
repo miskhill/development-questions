@@ -9,7 +9,7 @@ This server will solve this for me by sending me a text message daily at 9am. Th
 # How does it work?
 
 I attach the Node.js server to my MongoDb collections and using aggregation randomise a document from that question daily. Using a Twilio developer account I can send myself a free text every day at a time of my choice (9am). I set the time using a cron job.
-Updated in 2025 to remove but keep Twilio code and go to pushover notifications instead. Additionally send more often as I am no longer considering SMS costs.
+Updated in 2025 to remove but keep Twilio code and go to pushover notifications instead. Additionally send more often at 9am, midday, 3pm, 6pm and 9pmas I am no longer considering SMS costs.
 
 # Improvements
 
